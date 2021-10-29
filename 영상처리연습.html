@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영상처리 연습</title>
+    <script>
+        //전역 변수부 
+        var inCanvas,inCtx, inPaper; //입력 캔버스 관련
+        var inFile, inImage; //입력 파일 , 입력 이미지 (원본 이미지)
+        var inH, inW; 
+    </script>
+    <script>
+        //###함수 선언부###
+        //초기화 함수 
+        function init(){
+            inCanvas = document.getElementById('inCanvas'); //도화지에 접근 
+            inCtx= inCanvas.getContext("2d");
+        }
+        //파일을 열고 , 화면에 출력하기 (* 중요 * )
+        function readRawImage(){
+            inFile = document.getElementById('inFile').files[0]; //선택된 파일
+            // * 중요 * 이미지의 크기를 파악 !
+            inH = inW = Math.sqrt(inFile.size); 
+            //입력 이미지의 메모리 할당 
+            inImage; // 2차원 배열 (이미지 --> 2차원 배열)
+            inImage = new Array(inH);
+            for(var i=0; i<inH ; i++){
+                inImage[i] = new Array(inW);
+            }
+            //캔버스 크기를 결정 
+            inCanvas.height = inH;
+            inCanvas.width = inW;
+            //파일 --> 메모리로 로딩 
+            var reader = new FileReader();
+            reader.readAsBinaryString(inFile);
+            reader.onload = function(){
+                var blob = reader.result; //파일을 덩어리 (Blob)으로 가져옴 . 
+                //덩러리 (Blob) 에서 한점한점 뽑아서 ... 우리꺼 배열에 넣기 ! 
+                for(var i=0; i<inH ;i++){
+                    for(var k=0; k<inW;k++){
+                        var sPixel = (i*inH + k); //시작위치
+                        var ePixel = (i*inH + k) + 1; //끝위치
+                        inImage[i][k] = blob.slice(sPixel,ePixel);
+                    }
+                }
+                //**입력 메모리의 내용을 화면에 출력하기 
+                inPaper = inCtx.createImageData(inH,inW); //캔버스에 종이 붙이기 (크기는 캔버스와 동일)
+                for(var i=0; i<inH; i++){
+                    for(var k=0; k<inW; k++){
+                        var pix = inImage[i][k].charCodeAt(0); //이상한 문자를 숫자로 변환
+                        inPaper.data[(i*inH + k) * 4 + 0] = pix; //RED
+                        inPaper.data[(i*inH + k) * 4 + 1] = pix; //GREEN
+                        inPaper.data[(i*inH + k) * 4 + 2] = pix; //BLUe
+                        inPaper.data[(i*inH + k) * 4 + 3] = 255; //Alpha
+                    }
+                }
+                inCtx.putImageData(inPaper,0,0); //(0,0) 좌표에 붙여라 .
+            }
+        }
+
+        function displayImage(){
+            //** 입력 메모리의 내용을 화면에 출력하기 
+            inPaper = inCtx.createImageData(inH,inW); //캔버스에 종이 붙이기 (크기는 캔버스 동일)
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW; k++){
+                    var pix = inImage[i][k].charCodeAt(0); //이상한 문자를 숫자로 변환
+                    inPaper.data[(i*inH + k) * 4 + 0] = pix; //RED
+                    inPaper.data[(i*inH + k) * 4 + 1] = pix; //GREEN
+                    inPaper.data[(i*inH + k) * 4 + 2] = pix; //BLUE
+                    inPaper.data[(i*inH + k) * 4 + 3] = 255; //Alpha
+
+                }
+            }
+            inCtx.putImageData(inPaper,0,0) //(0,0) 좌표에 붙여라 . 
+        }
+    </script>
+    <script>
+        //영상처리 함수부
+        function addImage(){
+            var value = parseInt(prompt("숫자를 입력:","100"));
+            //영상처리 1 : 사진을 50밝게 처리하자 . 
+            for(var i=0; i<inH; i++){
+                for(var k=0;k<inW; k++){
+                    //문자 --> 숫자 
+                    var pixel = inImage[i][k].charCodeAt(0);
+                    // ** 진짜 핵심 알고리즘
+                    if(pixel + value > 255){
+                        pixel = 255;
+                    }
+                    else{
+                        pixel += value;
+                    }
+                    //숫자 --> 문자 
+                    inImage[i][k] = String.fromCharCode(pixel);
+                }
+            }
+            //**입력 메모리의 내용을 화면에 출력하기 
+            displayImage()
+        }
+
+        function subImage(){
+            var value = parseInt(prompt("숫자를 입력:","100"));
+            //영상처리 1 : 사진을 어둡게 처리하자 . 
+            for(var i=0; i<inH; i++){
+                for(var k=0;k<inW; k++){
+                    //문자 --> 숫자 
+                    var pixel = inImage[i][k].charCodeAt(0);
+                    // ** 진짜 핵심 알고리즘
+                    if(pixel - value > 255){
+                        pixel += 255;
+                    }
+                    else if(pixel - value < 0){
+                        pixel += 0;
+                    }
+                    else{
+                        pixel -= value;
+                    }
+                    //숫자 --> 문자 
+                    inImage[i][k] = String.fromCharCode(pixel);
+                }
+            }
+            //**입력 메모리의 내용을 화면에 출력하기 
+            displayImage()
+        }
+
+        function revImage(){
+            //영상처리 : 반전처리. 
+            for(var i=0; i<inH;i++){
+                for(var k=0; k<inW; k++){
+                    //문자 --> 숫자 
+                    var pixel = inImage[i][k].charCodeAt(0);
+                    pixel= Math.abs(255- pixel);
+                    //숫자 --> 문자 
+                    inImage[i][k] = String.fromCharCode(pixel);
+                }
+            }
+            //**입력 메모리의 내용을 화면에 출력하기 
+            displayImage();
+        }
+
+        function mirImage(){
+            // var pixel = inImage[i][k].charCodeAt(0);
+            //영상처리 : 미러링 하기 
+            inImage.reverse(); //상하
+            for(var i=0; i<inH; i++){
+                inImage[i].reverse(); //좌우
+                for(var k=0;k<inW; k++){
+                    // inImage[i][k] = String.fromCharCode(pixel);
+                }
+            }
+            displayImage();
+        }
+
+        function blackImage(){
+            //흑백처리
+            for(var i=0; i<inH;i++){
+                for(var k=0; k<inW; k++){
+                    var pixel = inImage[i][k].charCodeAt(0);
+                    if(pixel <= 127){
+                        pixel = 0;
+                    }
+                    else{
+                        pixel = 255;
+                    }
+                    inImage[i][k] = String.fromCharCode(pixel);
+                }
+            }
+            displayImage();
+        }
+    </script>
+</head>
+<body onload="init()">
+    <input type="file" id="inFile" onchange="readRawImage()"/> <br>
+    <hr>
+    <canvas id="inCanvas" style="background-color: rgb(96,202,202);"></canvas> <br>
+    <input type="button" id="addImage" value="밝게하기" onclick="addImage()"/>
+    <input type="button" id="subImage" value="어둡게하기" onclick="subImage()"/>
+    <input type="button" id="revImage" value="반전하기" onclick="revImage()"/> <br>
+    <input type="button" id="mirImage" value="미러링하기" onclick="mirImage()"/>
+    <input type="button" id="blackImage" value="흑백처리" onclick="blackImage()"/>
+
+</body>
+</html>
