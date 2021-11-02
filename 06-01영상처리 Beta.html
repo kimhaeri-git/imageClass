@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script> //전역 변수부
+        //전역 변수부 
+        var inCanvas,inCtx,inPaper; // 입력 캔버스 관련
+        var outCanvas,outCtx,outPaper; // 입력 캔버스 관련
+        var inImage, outImage; //이미지의 배열
+        var inH, inW, ouH, ouW;  //이미지의 크기 
+        var inFile; //입력 RAW 파일
+    </script>
+    <script> //공통 함수부
+         //초기화 함수
+         function init(){
+            inCanvas = document.getElementById('inCanvas'); //도화지에 접근
+            inCtx = inCanvas.getContext('2d'); //물감 , 붓이 들은 통
+            outCanvas = document.getElementById('outCanvas'); //도화지에 접근
+            outCtx = outCanvas.getContext('2d'); //물감 , 붓이 들은 통
+        }
+        //공통 함수부
+        function loadImage(){
+            inFile = document.getElementById('inFile').files[0]; //선택한 파일
+            // * 중요 * 이미지의 크기를 파악! 
+            inH = inW = Math.sqrt(inFile.size); // 512,512
+            //입력 이미지의 메모리 할당 
+            inImage; //2차원 배열 (이미지 --> 2차원 배열)
+            inImage = new Array(inH);
+            for(var i=0; i<inH; i++){
+                inImage[i] = new Array(inW);
+            }
+            // 캔버스 크기를 결정 
+            inCanvas.height = inH;
+            inCanvas.width = inW;
+            //파일 --> 메모리로 로딩
+            var reader = new FileReader();
+            reader.readAsBinaryString(inFile);
+            reader.onload = function() {
+                var blob = reader.result; // 파일을 덩어리 (Blob)으로 가져옴. 
+                // 덩어리 (Blob)에서 한점한점 뽑아서 ,, 우리꺼 배열에 넣기!
+                for(var i=0; i<inH; i++){
+                    for(var k=0; k<inW; k++){
+                        var sPixel = (i*inH + k);//시작위치
+                        var ePixel = (i*inH + k) + 1;//끝위치
+                        inImage[i][k] = blob.slice(sPixel,ePixel);
+
+                    }
+                }
+                // ** 입력 메모리의 내용을 화면에 출력하기 . 
+                
+                inPaper = inCtx.createImageData(inH,inW); //캔버스에 종이 붙이기 (크기는 캔버스 동일)
+                for(var i=0; i<inH; i++){
+                    for(var k=0; k<inW; k++){
+                        var pix = inImage[i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                        //RGB값이 다르면 color고 , RGB값이 같으면 Gray Scale 임 
+                        inPaper.data[(i*inH + k) * 4 + 0] = pix; //RED,4바이트로 한개의 컬러를 표현  
+                        inPaper.data[(i*inH + k) * 4 + 1] = pix; //GREEN,종이의 한 점당 4바이트  
+                        inPaper.data[(i*inH + k) * 4 + 2] = pix;  //Blue 
+                        inPaper.data[(i*inH + k) * 4 + 3] = 255;  //Alpha , 투명 제로 [불투명]
+
+                    }
+                }
+                inCtx.putImageData(inPaper,0,0); //(0,0) 좌표에 붙여라 . 
+            }
+        }
+        function displayImage(){
+            // ** 출력 메모리의 내용을 화면에 출력하기 . 
+                
+            outPaper = outCtx.createImageData(outH,outW); //캔버스에 종이 붙이기 (크기는 캔버스 동일)
+            for(var i=0; i<outH; i++){
+                for(var k=0; k<outW; k++){
+                    var pix = outImage[i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                    //RGB값이 다르면 color고 , RGB값이 같으면 Gray Scale 임 
+                    outPaper.data[(i*outH + k) * 4 + 0] = pix; //RED,4바이트로 한개의 컬러를 표현  
+                    outPaper.data[(i*outH + k) * 4 + 1] = pix; //GREEN,종이의 한 점당 4바이트  
+                    outPaper.data[(i*outH + k) * 4 + 2] = pix;  //Blue 
+                    outPaper.data[(i*outH + k) * 4 + 3] = 255;  //Alpha
+
+                }
+            }
+            outCtx.putImageData(outPaper,0,0); //(0,0) 좌표에 붙여라 . 
+        }
+        
+        function saveImage(){
+
+        }
+        
+    </script>
+    <script> //영상처리 함수부
+        function selectAlgorithm(selectNum){
+
+            switch (parseInt(selectNum.value)){ // 101,102....
+                case 101: //동일 영상 
+                    // alert(selectNum.value);
+                    equalImage();
+                    break;
+                case 102: //밝게 어둡게
+                    addImage();
+                    break;
+            }
+        }
+
+        // 영상처리 함수부
+        function equalImage(){
+            //중요 ! 출력 영상의 크기를 결정 --> 알고리즘에 의존
+            outH = inH;
+            outW = inW;
+            // 캔버스 크기를 결정 
+            outCanvas.height = outH;
+            outCanvas.width = outW;
+            //입력 이미지의 메모리 할당 
+            outImage; //2차원 배열 (이미지 --> 2차원 배열)
+            outImage = new Array(outH);
+            for(var i=0; i<outH; i++){
+                outImage[i] = new Array(outW);
+            }
+            //영상처리 알고리즘 . 
+            for(var i=0; i<inH;i++){
+                for(var k=0; k<inW; k++){
+                    outImage[i][k] = inImage[i][k];
+                }
+            }
+             // ** 입력 메모리의 내용을 화면에 출력하기 . 
+             displayImage();
+        }
+        function addImage(){
+            //중요 ! 출력 영상의 크기를 결정 --> 알고리즘에 의존
+            outH = inH;
+            outW = inW;
+            // 캔버스 크기를 결정 
+            outCanvas.height = outH;
+            outCanvas.width = outW;
+            //입력 이미지의 메모리 할당 
+            outImage; //2차원 배열 (이미지 --> 2차원 배열)
+            outImage = new Array(outH);
+            for(var i=0; i<outH; i++){
+                outImage[i] = new Array(outW);
+            }
+            var value = parseInt(prompt("숫자를 입력 :", "100"));
+            for(var i=0; i<inH;i++){
+                for(var k=0; k<inW; k++){
+                    //문자 --> 숫자 
+                    var pixel = inImage[i][k].charCodeAt(0);
+                    // ** 진짜 핵심 알고리즘
+                    if (pixel + value > 255)
+                        pixel = 255;
+                    else if(pixel + value <0){
+                        pixel = 0;
+                    }
+                    else
+                        pixel += value;
+                    //숫자 --> 문자 
+                    outImage[i][k] = String.fromCharCode(pixel);
+                }
+            }
+             // ** 입력 메모리의 내용을 화면에 출력하기 . 
+             displayImage();
+        }
+    </script>
+</head>
+<body onload="init()">
+    <form>
+        <input type="file" id="inFile" onchange="loadImage()"/> <br>
+        <label> 그레이 영상처리 Beta 1 </label>
+        <select name="imageAlgo" onchange="selectAlgorithm(this.form.imageAlgo)">
+            <option value=0>선택하세요</option>
+            <optgroup label="화소점 처리">
+                <option value = 101> 동일 영상 처리 </option>
+                <option value = 102> 영상 밝게/어둡게 </option>
+                <option value = 103> 흑백(127기준) </option>
+                <option value = 104> 흑백(입력값 기준) </option>
+                <option value = 105> 흑백(평균값 기준) </option>
+                <option value = 106> 흑백(중앙값 기준) </option>
+            </optgroup>
+            <optgroup label="기하학 처리">
+                <option value=201>축소하기</option>
+                <option value=202>확대하기</option>
+            </optgroup>
+            <optgroup label="히스토그램">
+                <option value=301> 히스토그램 스트레칭 </option>
+                <option value=302> 엔드인 탐색 </option>
+                <option value=303> 평활화 </option>
+            </optgroup>
+        </select>
+        <hr>
+        <canvas id="inCanvas" style="background-color:rgb(96, 202, 202)"></canvas>
+        <canvas id="outCanvas" style="background-color:rgb(220, 231, 210)"></canvas>
+
+    </form>
+</body>
+</html>
