@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>  // 전역 변수부 (*중요*)
+    var inCanvas, inCtx, inPaper, outCanvas, outCtx, outPaper; // 화면용
+    var inImage, inH, inW, outImage, outH, outW; // 핵심 변수들
+    var inFile;
+</script>
+<script> // 공통 함수부
+    // 초기화 함수
+    function init() {
+        inCanvas = document.getElementById('inCanvas'); // 도화지에 접근
+        inCtx = inCanvas.getContext('2d'); // 물감,붓이 들은 통
+        outCanvas = document.getElementById('outCanvas'); // 도화지에 접근
+        outCtx = outCanvas.getContext('2d'); // 물감,붓이 들은 통
+    }
+    function loadImage() {
+        //inFile = document.getElementById('inFile').files[0]; // 선택한 칼라 파일
+        var fileNum = document.getElementById('fileNum').value;
+        var inFileName = "Nature99(Small)/picture" + fileNum + ".jpg";
+        // 그림 파일 --> 이미지 객체
+        var inPicture = new Image(); // 빈 이미지 객체 생성
+        inPicture.src = inFileName;
+        inPicture.onload = function() { // 익명함수
+            // *중요* 입력 파일 크기 파악
+            inH = inPicture.height;
+            inW = inPicture.width;
+
+            // 캔버스 크기 조절
+            inCanvas.height = inH;
+            inCanvas.width = inW;
+            inCtx.drawImage(inPicture,0,0,inW,inH)
+
+            // 입력용 3차원 배열 메모리 할당
+            inImage = new Array(3); // 3장짜리 배열(R,G,B)
+            for(var i=0; i<3; i++) {
+                inImage[i] = new Array(inH);
+                for(var k=0; k<inH; k++)
+                    inImage[i][k] = new Array(inW);
+            }
+
+            // *중요* 캔버스 --> 배열로 칼라색상 추출
+            var colorBlob = inCtx.getImageData(0,0,inW,inH); // 주의!
+            var R, G, B, Alpha;
+            for(var i=0; i<inH; i++) {
+                for (var k=0; k<inW; k++) {
+                    var px = (i*inW + k) * 4; // 1픽셀=4Byte
+                    R = colorBlob.data[px+0];
+                    G = colorBlob.data[px+1];
+                    B = colorBlob.data[px+2];
+                    // Alpha = colorBlob.data[px+3];
+                    inImage[0][i][k] = String.fromCharCode(R);
+                    inImage[1][i][k] = String.fromCharCode(G);
+                    inImage[2][i][k] = String.fromCharCode(B);
+                }
+            }            
+        }
+    }
+    function displayImage() {
+        // ** 출력 메모리의 내용을 화면에 출력하기. **
+        // 캔버스 크기 조절
+        outCanvas.height = outH;
+        outCanvas.width = outW;
+        outPaper = outCtx.createImageData(outW, outH); // 캔버스에 종이 붙이기 (크기는 캔버스 동일)
+
+        for (var i=0; i<outH; i++) {
+            for (var k=0; k<outW; k++) {
+                var R = outImage[0][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var G = outImage[1][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var B = outImage[2][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                outPaper.data[(i*outW + k) * 4 + 0] = R; // Red
+                outPaper.data[(i*outW + k) * 4 + 1] = G; // Green
+                outPaper.data[(i*outW + k) * 4 + 2] = B; // Blue
+                outPaper.data[(i*outW + k) * 4 + 3] = 255; // Alpha
+            }
+        }
+        outCtx.putImageData(outPaper,0,0); // (0,0) 좌표에 붙여라.
+    }
+
+</script>
+<script> // 영상처리 함수부
+    function selectAlgorithm(selectNum) {    
+        switch (parseInt(selectNum.value)) {  // 101, 102 ......
+            case 101 : // 동일 영상
+                equalImage(); 
+                break;
+            case 102 : // 밝게 어둡게
+                addImage();
+                break;     
+            case 103 : // 그레이스케일
+                grayImage();
+                break;       
+            case 104 : // #흑백 (마우스-사각형)
+                bwImage_mouse();
+                break;  
+            case 105 : // 흑백 (입력값)
+                inputbkImage();
+                break;  
+            case 106 : // 흑백 (평균값)
+                avgblackImage();
+                break;  
+            case 107 : // 흑백 (중앙값)
+                centbkImage();
+                break;  
+            case 108 : // 흑백 (127)
+                numbkImage();
+                break;   
+            case 109 : // 파라볼라(cap)
+                paraCap();
+                break;
+            case 110 : // 감마보정
+                gammaImg();
+                break;  
+            case 111 : // 화소처리(AND 프로그램)
+                andImage();
+                break;  
+            case 112 : // 화소처리(OR 프로그램)
+                orImage();
+                break;  
+            case 113 : // 화소처리(XOR 프로그램)
+                xorImage();
+                break;  
+            case 114 : // 투명도 주기 (Alpha)
+                alphaImage();
+                break;  
+            case 115 : // 범위 강조 변환
+                stressImage();
+                break;   
+            case 201 : // 축소하기
+                zoomOut();
+                break;  
+            case 202 : // 확대하기
+                zoomIn();
+                break; 
+            case 203 : // 양선형 보간법
+                biLinear();
+                break; 
+            case 204 : // ##흑백 (마우스 - 다각형)
+                reverseImage_free_mouse();
+                break;
+            case 205 : // 퀵오렌지
+                pickOrange();
+                break;
+            case 206 : // 채도 낮추기
+                changeSaturation();
+                break;
+            case 207 : // 명도 조절 [밝게 조절]
+                changeBrighteness();
+                break;
+            case 208 : // 미러링 하기
+                mirImage();
+                break;
+            case 301 : // 히스토그램 스트레칭
+                histoStretch();
+                break;
+            case 302 : // 엔드인 탐색
+                endInSearch();
+                break;
+            case 303 : // 평활화
+                histoEqual();
+                break;
+            case 304 : // 90도 회전
+                rotateNine();
+                break;
+            case 305 : // 회전[자유각도]
+                mirImage();
+                break;
+
+        }
+    }
+
+    function equalImage() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    outImage[rgb][i][k] = inImage[rgb][i][k];
+                }
+            }
+        }
+        displayImage();
+    }
+
+    var startX, startY, endX, endY; 
+    function bwImage_mouse() {
+        inCanvas.addEventListener("mousedown", __downMouse, false);
+        inCanvas.addEventListener("mouseup", __upMouse, false);
+        function __downMouse(e) { 
+            startX = e.offsetX;
+            startY = e.offsetY;
+        }   
+        function __upMouse(e) { 
+            endX = e.offsetX;
+            endY = e.offsetY;
+            if(startX > endX){
+                var tmp = startX; startX = endX; endX = tmp;
+            }
+            if(startY > endY){
+                var tmp = startY; startY = endY; endY = tmp;
+            }
+            // 네모 치기
+            inCtx.beginPath()
+            inCtx.strokeStyle = 'red'; 
+            inCtx.lineWidth=1;
+            inCtx.rect(startX, startY, (endX-startX), (endY-startY));
+            inCtx.stroke(); // 선 표시되게 하기
+            inCtx.closePath();
+            inCanvas.removeEventListener("mousedown", __downMouse, false);
+            inCanvas.removeEventListener("mouseup", __upMouse, false);
+            __bwImage();
+        }
+        function __bwImage() {
+            // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+            outH = inH;
+            outW = inW;
+            // 출력용 3차원 배열 메모리 할당
+            outImage = new Array(3); // 3장짜리 배열(R,G,B)
+            for(var i=0; i<3; i++) {
+                outImage[i] = new Array(outH);
+                for(var k=0; k<outH; k++)
+                outImage[i][k] = new Array(outW);
+            }
+            // *** 영상 처리 알고리즘 ***
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+
+                    // 선택한 범위 안에만 처리
+                    if (( startX <= k && k<=endX ) && (startY <= i && i <= endY ) ) {
+                        // 문자 --> 숫자
+                        var R = inImage[0][i][k].charCodeAt(0);
+                        var G = inImage[1][i][k].charCodeAt(0);
+                        var B = inImage[2][i][k].charCodeAt(0);
+                        var pixel = Math.floor((R + G + B) / 3.0);
+                        // ** 진짜 핵심 알고리즘
+                        if (pixel > 127)
+                            pixel = 255;
+                        else 
+                            pixel = 0;
+                        // 숫자 --> 문자
+                        outImage[0][i][k] = String.fromCharCode(pixel);
+                        outImage[1][i][k] = String.fromCharCode(pixel);
+                        outImage[2][i][k] = String.fromCharCode(pixel);
+                    }else{
+                        outImage[0][i][k] =  inImage[0][i][k];
+                        outImage[1][i][k] =  inImage[1][i][k];
+                        outImage[2][i][k] =  inImage[2][i][k];
+                        
+                    }
+
+                }
+            }
+            displayImage();
+        }
+    }
+
+
+
+
+
+
+    function addImage() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var value = parseInt(prompt("숫자를 입력:", "100"));
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    // 문자 --> 숫자
+                    var pixel = inImage[rgb][i][k].charCodeAt(0);
+                    // ** 진짜 핵심 알고리즘
+                    if (pixel + value > 255)
+                        pixel = 255;
+                    else if (pixel + value < 0)
+                        pixel = 0;
+                    else 
+                        pixel += value;
+                    // 숫자 --> 문자
+                    outImage[rgb][i][k] = String.fromCharCode(pixel);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function grayImage() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        for(var i=0; i<inH; i++) {
+            for(var k=0; k<inW; k++) {
+                var R = inImage[0][i][k].charCodeAt(0);
+                var G = inImage[1][i][k].charCodeAt(0);
+                var B = inImage[2][i][k].charCodeAt(0);
+
+                var pixel = Math.floor((R + G + B) / 3.0);
+
+                outImage[0][i][k] = outImage[1][i][k] = outImage[2][i][k] = String.fromCharCode(pixel);;
+            }
+        }
+        displayImage();
+    }
+
+    function inputbkImage() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var value = parseInt(prompt("숫자를 입력 : " , "100"));
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = Math.floor((R+G+B)/3);
+                    if (pixel < value) {
+                        pixel = 0;
+                    }
+                    else if(pixel > value){
+                        pixel = 255;
+                    }
+                    else{
+                        pixel = 0;
+                    }
+                    outImage[0][i][k] = String.fromCharCode(pixel);
+                    outImage[1][i][k] = String.fromCharCode(pixel);
+                    outImage[2][i][k] = String.fromCharCode(pixel);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function avgblackImage() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var sum = 0; 
+        var avg = 0;
+
+        for(var rgb=0; rgb<3;rgb++){
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW;k++){
+                    var pixel = inImage[rgb][i][k].charCodeAt(0);
+                    sum += pixel;
+                }
+            }
+        }
+
+        avg = Math.floor(sum/(inH*inW*3));
+        // console.log(avg);
+        
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = Math.floor((R+G+B)/3);
+                    if (pixel < avg) {
+                        pixel = 0;
+                    }
+                    else if(pixel > avg){
+                        pixel = 255;
+                    }
+                    else{
+                        pixel = 0;
+                    }
+
+                    outImage[0][i][k] = outImage[1][i][k] = outImage[2][i][k] = String.fromCharCode(pixel);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function centbkImage() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var ni = 0; 
+        var narray = new Array();
+        for(var rgb=0; rgb<3;rgb++){
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW; k++){
+                    var pixel = inImage[rgb][i][k];
+                    narray[ni] = pixel;
+                    ni++;
+                    inImage[rgb][i][k] = pixel;
+                }
+            }
+        }
+        oneArry = narray.sort(function(a,b){
+            if(a>b)
+                return 1;
+            if(a === b)
+                return 0;
+            if(a < b)
+                return -1;
+        });
+
+        var midVal = oneArry[(Math.floor(oneArry.length / 2))].charCodeAt(0);
+        
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = Math.floor((R+G+B)/3);
+                    
+                    if (pixel < midVal) {
+                        pixel = 0;
+                    }
+                    else if(pixel > midVal){
+                        pixel = 255;
+                    }
+                    else{
+                        pixel = 0;
+                    }
+
+                    outImage[0][i][k] = outImage[1][i][k] = outImage[2][i][k] = String.fromCharCode(pixel);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function numbkImage() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var value = 127;
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = Math.floor((R+G+B)/3);
+                    if (pixel < value) {
+                        pixel = 0;
+                    }
+                    else if(pixel > value){
+                        pixel = 255;
+                    }
+                    else{
+                        pixel = 0;
+                    }
+                    outImage[0][i][k] = String.fromCharCode(pixel);
+                    outImage[1][i][k] = String.fromCharCode(pixel);
+                    outImage[2][i][k] = String.fromCharCode(pixel);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function paraCap(){
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        //LUT(LookUP Table) 기법 --> 미리 복잡한 수식을 계산해 놓고 , 가져다 쓰기
+        var LUT = new Array(256);
+        for(var i=0; i<256;i++){
+            var outVal = 255.0 -255.0 * Math.pow( (i / 127.0 -1) , 2.0 );
+                if(outVal > 255.0){
+                    outVal = 255.0;
+                }
+                if(outVal < 0.0)
+                    outVal = 0.0;
+                LUT[i] = parseInt(outVal);
+        }   
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    var inVal = inImage[rgb][i][k].charCodeAt(0);
+                    var outVal = LUT[inVal];
+                    outImage[rgb][i][k] = String.fromCharCode(outVal);
+
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function gammaImg(){
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        //영상처리 알고리즘 . 
+        // LUT(LookUP Table ) 기법 --> 미리 복잡한 수식을 계산해 놓고 , 가져다 쓰기
+        var value = Number(prompt("감마 값", 0.9));
+        var LUT = new Array(256);
+        for (var i = 0; i < 256; i++) {
+            outVal = Math.pow(i, 1 / value);
+            if (outVal > 255.0)
+                outVal = 255.0;
+            if (outVal < 0.0)
+                outVal = 0.0;
+            LUT[i] = parseInt(outVal);
+        }
+        for (var rgb = 0; rgb < 3; rgb++) {
+            for (var i = 0; i < outH; i++) {
+                for (var k = 0; k < outW; k++) {
+                    // 문자 --> 숫자
+                    var inVal = inImage[rgb][i][k].charCodeAt(0);
+                    var outVal = LUT[inVal];
+
+                    // 숫자 --> 문자
+                    outImage[rgb][i][k] = String.fromCharCode(outVal);
+                }
+            }
+        }
+        displayImage();
+
+    }
+
+    function andImage(){
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var value = parseInt(prompt("숫자를 입력 : ","128"));
+
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                     // ** 진짜 핵심 알고리즘
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = Math.floor((R+G+B)/3);
+                    if ((pixel & value) >= 255) {
+                        pixel = 255;
+                    }
+                    else if((pixel & value)< 0){
+                        pixel = 0;
+                    }
+                    else{
+                        pixel = (pixel & value);
+                    }
+                    // console.log(inImage[i][k] && value);
+                    outImage[0][i][k] = String.fromCharCode(pixel);
+                    outImage[1][i][k] = String.fromCharCode(pixel);
+                    outImage[2][i][k] = String.fromCharCode(pixel);
+                }
+            }
+        }
+        displayImage();
+    }
+    
+    function orImage(){
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var value = parseInt(prompt("숫자를 입력 : ","128"));
+
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                     // ** 진짜 핵심 알고리즘
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = Math.floor((R+G+B)/3);
+                    if ((pixel | value) >= 255) {
+                        pixel = 255;
+                    }
+                    else if((pixel | value)< 0){
+                        pixel = 0;
+                    }
+                    else{
+                        pixel = (pixel | value);
+                    }
+                    // console.log(inImage[i][k] && value);
+                    outImage[0][i][k] = String.fromCharCode(pixel);
+                    outImage[1][i][k] = String.fromCharCode(pixel);
+                    outImage[2][i][k] = String.fromCharCode(pixel);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function xorImage(){
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var value = parseInt(prompt("숫자를 입력 : ","128"));
+
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                     // ** 진짜 핵심 알고리즘
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = Math.floor((R+G+B)/3);
+                    if ((pixel ^ value) >= 255) {
+                        pixel = 255;
+                    }
+                    else if((pixel ^ value)< 0){
+                        pixel = 0;
+                    }
+                    else{
+                        pixel = (pixel ^ value);
+                    }
+                    // console.log(inImage[i][k] && value);
+                    outImage[0][i][k] = String.fromCharCode(pixel);
+                    outImage[1][i][k] = String.fromCharCode(pixel);
+                    outImage[2][i][k] = String.fromCharCode(pixel);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function zoomOut(){
+        var scale = parseInt(prompt("축소 배율 :", "2"));
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = parseInt(inH/scale);
+        outW = parseInt(inW/scale);
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        
+        // *** 영상 처리 알고리즘 ***
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    outImage[rgb][parseInt(i/scale)][parseInt(k/scale)] = inImage[rgb][i][k];
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function zoomIn(){
+        var scale = parseInt(prompt("확대 배율 :", "2"));
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = parseInt(inH*scale);
+        outW = parseInt(inW*scale);
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+                outImage[i][k] = new Array(outW);
+        }
+
+        //출력 이미지를 초기화 시키기 
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<outH; i++) {
+                for(var k=0; k<outW; k++)
+                    outImage[rgb][i][k] = String.fromCharCode(0);
+            }
+        }
+        
+        // *** 영상 처리 알고리즘 ***
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<outH; i++) {
+                for(var k=0; k<outW; k++) {
+                    outImage[rgb][i][k] = inImage[rgb][parseInt(i/scale)][parseInt(k/scale)];
+                }
+            }
+        }
+        displayImage();
+    }
+    function biLinear(){
+        var zoomRate = parseInt(prompt("확대 배율 :", "2"));
+        var largeH, largeW, smallH, smallW;
+        var ih, iw, point;
+        var c1, c2, c3, c4;
+
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = parseInt(inH * zoomRate);
+        outW = parseInt(inW * zoomRate);
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+
+        //출력 이미지를 초기화 시키기 
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<outH; i++) {
+                for(var k=0; k<outH; k++)
+                    outImage[rgb][i][k] = String.fromCharCode(0);
+            }
+        }
+        // *** 영상 처리 알고리즘 ***
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<outH; i++) {
+                for(var k=0; k<outW; k++) {
+                    // ** 진짜 핵심 알고리즘
+
+                    largeH = i / zoomRate;
+                    largeW = k / zoomRate;
+
+                    ih = parseInt(largeH);
+                    iw = parseInt(largeW);
+                    //    console.log(iw);
+
+                    smallH = largeH - ih;
+                    smallW = largeW - iw;
+
+                    if (ih < 0 || ih >= (inH - 1) || iw < 0 || iw >= (inW - 1)) { //point = i * outW + k;
+                        outImage[rgb][i][k] = 255;
+                    } else {
+                        c1 = inImage[rgb][ih][iw].charCodeAt(0);
+                        c2 = inImage[rgb][ih][iw + 1].charCodeAt(0);
+                        c3 = inImage[rgb][ih + 1][iw + 1].charCodeAt(0);
+                        c4 = inImage[rgb][ih + 1][iw].charCodeAt(0);
+                        // console.log(c2);
+
+                        var newValue = (c1 * (1 - smallH) * (1 - smallW) +
+                            c2 * smallW * (1 - smallH) + c3 * smallW * smallH + c4 * (1 - smallW) * smallH);
+                        // point = i * outW + k;
+                        // console.log(newValue);
+                        outImage[rgb][i][k] = newValue;
+                    }
+                }
+            }
+        }
+         // ** 출력 메모리의 내용을 화면에 출력하기 
+          // 캔버스 크기 조절
+        outCanvas.height = outH;
+        outCanvas.width = outW;
+
+        outPaper = outCtx.createImageData(outW, outH); //캔버스에 종이 붙이기 (크기는 캔버스 동일)
+   
+        for (var i = 0; i < outH; i++) {
+            for (var k = 0; k < outW; k++) {
+                var R = outImage[0][i][k]; // 이상한 문자(꽯)를 숫자(231)로.
+                var G = outImage[1][i][k]; // 이상한 문자(꽯)를 숫자(231)로.
+                var B = outImage[2][i][k]; // 이상한 문자(꽯)를 숫자(231)로.
+                //RGB값이 다르면 color고 , RGB값이 같으면 Gray Scale 임 
+                outPaper.data[(i * outW + k) * 4 + 0] = R; //RED,4바이트로 한개의 컬러를 표현  
+                outPaper.data[(i * outW + k) * 4 + 1] = G; //GREEN,종이의 한 점당 4바이트  
+                outPaper.data[(i * outW + k) * 4 + 2] = B; //Blue 
+                outPaper.data[(i * outW + k) * 4 + 3] = 255; //Alpha
+
+            }
+        }
+        outCtx.putImageData(outPaper, 0, 0); //(0,0) 좌표에 붙여라 .  
+    }
+
+    var pntAry = []; //마우스가 지나간 좌표 모음 (대용량)
+
+    function reverseImage_free_mouse() {
+        pntAry = []; // 포인트 값들 초기화 
+        inCanvas.addEventListener("mousedown", __downMouse, false);
+        inCanvas.addEventListener("mousemove", __moveMouse, false);
+        inCanvas.addEventListener("mouseup", __upMouse, false);
+        var clickYN = false;
+
+        function __downMouse(e){
+            clickYN = true;
+            sx = e.offsetX;
+            sy = e.offsetY;
+            pntAry[pntAry.length] = [sx, sy]; 
+        }
+        function __moveMouse(e){
+            if(!clickYN){
+                return;
+            }
+            sx = e.offsetX;
+            sy = e.offsetY;
+            pntAry[pntAry.length] = [sx, sy]; 
+            //선 그리기 
+            pt1 = pntAry[pntAry.length-2]; //내 앞
+            pt2 = pntAry[pntAry.length-1]; //나
+            inCtx.beginPath();
+            inCtx.moveTo(pt1[0],pt1[1]);
+            inCtx.lineTo(pt2[0],pt2[1]);
+            inCtx.stroke();
+            inCtx.closePath();
+        }
+        function __upMouse(e){
+            clickYN = false;
+            sx = e.offsetX;
+            sy = e.offsetY;
+            pt1 =pntAry[pntAry.length] = [sx, sy];
+            pt2 =pntAry[pntAry.length] = pntAry[0]; // 폐합 폴리곤으로 만들기 ...
+            //마지막 선 그리기
+            pt1 = pntAry[pntAry.length-2]; //내 앞
+            pt2 = pntAry[pntAry.length-1]; //나
+            inCtx.beginPath();
+            inCtx.moveTo(pt1[0],pt1[1]);
+            inCtx.lineTo(pt2[0],pt2[1]);
+            inCtx.stroke();
+            inCtx.closePath();
+            
+            // alert(pntAry[0]);
+            // alert(pntAry[10]);
+            // alert(pntAry[pntAry.length-1]); //마지막 거
+
+            // 영상처리 진행 
+            __reverseImage();
+
+        }
+
+        function __reverseImage(){
+            // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+            outH = inH;
+            outW = inW;
+            // 출력용 3차원 배열 메모리 할당
+            outImage = new Array(3); // 3장짜리 배열(R,G,B)
+            for(var i=0; i<3; i++) {
+                outImage[i] = new Array(outH);
+                for(var k=0; k<outH; k++)
+                outImage[i][k] = new Array(outW);
+            }
+            // *** 영상 처리 알고리즘 ***
+            for(var rgb=0; rgb<3; rgb++) {
+                for(var i=0; i<inH; i++) {
+                    for(var k=0; k<inW; k++) {
+
+                        if(pointInPolygon(pntAry,k,i)){ //true 리턴 햇을 떄 
+
+                            //문자 --> 숫자
+                            var R = 255-inImage[0][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                            var G = 255-inImage[1][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                            var B = 255-inImage[2][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+
+                            //숫자 --> 문자
+                            outImage[0][i][k] = String.fromCharCode(R);
+                            outImage[1][i][k] = String.fromCharCode(G);
+                            outImage[2][i][k] = String.fromCharCode(B);
+                        }else{
+                            
+                            outImage[0][i][k] = inImage[0][i][k];
+                            outImage[1][i][k] = inImage[1][i][k];
+                            outImage[2][i][k] = inImage[2][i][k];
+                        }
+                    }
+                }
+            }
+            displayImage();
+        }
+        function pointInPolygon(pointArray, pntX, pntY){
+            //pointArray : [ [x1, y1],[x2,y2],[x3,y3], .... [x1,y1]]
+            //pntX : x
+            //pntY : y
+            //만약 다각형 안에 있으면 true 리턴 , 아니면 false 리턴 
+            // 찾은 코드 
+            var x = pntX;
+            var y = pntY;
+
+            var inside = false;
+            for(var i=0, j=pointArray.length-1;i<pointArray.length;j=i++){
+                var xi = pointArray[i][0];
+                var yi = pointArray[i][1];
+                var xj = pointArray[j][0];
+                var yj = pointArray[j][1];
+
+                var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if(intersect) 
+                    inside = !inside;
+            }
+            return inside;
+
+            //교수님 코드 
+            // crossCnt = 0; // 교차 횟수 
+            // for( i = 0; i < pointArray.length-1; i++ ) {  // i,k는 다각형의 인접 선분. 
+            //     k = ( i + 1 ) ;  // 마지막 점과 첫점을 한 선분으로 처리하기 위함.
+            //     if( ( pointArray[i][1] > pntY) != ( pointArray[k][1] > pntY ) ) { 
+            //         atX = ( ( (pointArray[k][0] - pointArray[i][0] )/(pointArray[k][1] - pointArray[i][1] ) )
+            //             *( pntY - pointArray[i][1] ) ) + pointArray[i][0]; 
+            //         if( pntX < atX ) 
+            //             crossCnt++; 
+            //     } 
+            // } 
+            // // 홀수면 내부, 짝수면 외부에 있음 
+            // if( 0 == ( crossCnt % 2 ) )
+            //     return false; 
+            // else 
+            //     return true; 
+        }
+    }
+    function alphaImage(){
+        var value = parseInt(prompt("알파값 :", "100"));
+
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    outImage[rgb][i][k] = inImage[rgb][i][k];
+                }
+            }
+        }
+       // ** 출력 메모리의 내용을 화면에 출력하기. **
+        // 캔버스 크기 조절
+        outCanvas.height = outH;
+        outCanvas.width = outW;
+        outPaper = outCtx.createImageData(outW, outH); // 캔버스에 종이 붙이기 (크기는 캔버스 동일)
+
+        for (var i=0; i<outH; i++) {
+            for (var k=0; k<outW; k++) {
+                var R = outImage[0][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var G = outImage[1][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var B = outImage[2][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                outPaper.data[(i*outW + k) * 4 + 0] = R; // Red
+                outPaper.data[(i*outW + k) * 4 + 1] = G; // Green
+                outPaper.data[(i*outW + k) * 4 + 2] = B; // Blue
+                outPaper.data[(i*outW + k) * 4 + 3] = value; // Alpha
+            }
+        }
+        outCtx.putImageData(outPaper,0,0); // (0,0) 좌표에 붙여라. 
+    }
+
+    function changeSaturation() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var s_value = parseFloat(prompt("숫자를 입력(0~1) :", "-0.2"));
+        for(var i=0; i<inH; i++) {
+            for(var k=0; k<inW; k++) {
+                //문자 --> 숫자
+                var R = inImage[0][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var G = inImage[1][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var B = inImage[2][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                //RGB --> HSV
+                var hsv = rgb2hsv(R,G,B); // {h:120, s: 0.4, v:0.3}
+                var H = hsv.h;
+                var S = hsv.s;
+                var V = hsv.v;
+                //채도 변경하기 
+                S += s_value;
+                // HSV --> RGB
+                var rgb = hsv2rgb(H,S,V); // {r:150, g: 33, b:253}
+                R = rgb.r;
+                G = rgb.g;
+                B = rgb.b;
+
+                //숫자 --> 문자
+                outImage[0][i][k] = String.fromCharCode(R);
+                outImage[1][i][k] = String.fromCharCode(G);
+                outImage[2][i][k] = String.fromCharCode(B);
+            }
+        }
+        displayImage();
+    }
+
+    function changeBrighteness() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var v_value = parseFloat(prompt("숫자를 입력(0~1) :", "-0.2"));
+        for(var i=0; i<inH; i++) {
+            for(var k=0; k<inW; k++) {
+                //문자 --> 숫자
+                var R = inImage[0][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var G = inImage[1][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var B = inImage[2][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                //RGB --> HSV
+                var hsv = rgb2hsv(R,G,B); // {h:120, s: 0.4, v:0.3}
+                var H = hsv.h;
+                var S = hsv.s;
+                var V = hsv.v;
+                //명도 변경하기 
+                V += v_value;
+                // HSV --> RGB
+                var rgb = hsv2rgb(H,S,V); // {r:150, g: 33, b:253}
+                R = rgb.r;
+                G = rgb.g;
+                B = rgb.b;
+
+                //숫자 --> 문자
+                outImage[0][i][k] = String.fromCharCode(R);
+                outImage[1][i][k] = String.fromCharCode(G);
+                outImage[2][i][k] = String.fromCharCode(B);
+            }
+        }
+        displayImage();
+    }
+
+    function rgb2hsv(r, g, b) {
+            var max = Math.max(r, g, b), min = Math.min(r, g, b),
+                d = max - min,
+                h,
+                s = (max === 0 ? 0 : d / max),
+                v = max / 255;
+
+            switch (max) {
+                case min: h = 0; break;
+                case r: h = (g - b) + d * (g < b ? 6: 0); h /= 6 * d; break;
+                case g: h = (b - r) + d * 2; h /= 6 * d; break;
+                case b: h = (r - g) + d * 4; h /= 6 * d; break;
+            }
+            return {
+                h: h,    s: s,    v: v
+            };
+        }
+
+        function hsv2rgb(h, s, v) {
+            var r, g, b, i, f, p, q, t;
+
+            h = h*360;  s = s*100;    v = v*100;
+
+            // Make sure our arguments stay in-range
+            h = Math.max(0, Math.min(360, h));
+            s = Math.max(0, Math.min(100, s));
+            v = Math.max(0, Math.min(100, v));
+            
+            h /= 360;   s /= 100;     v /= 100;
+
+            i = Math.floor(h * 6);
+            f = h * 6 - i;
+            p = v * (1 - s);
+            q = v * (1 - f * s);
+            t = v * (1 - (1 - f) * s);
+            switch (i % 6) {
+                case 0: r = v, g = t, b = p; break;
+                case 1: r = q, g = v, b = p; break;
+                case 2: r = p, g = v, b = t; break;
+                case 3: r = p, g = q, b = v; break;
+                case 4: r = t, g = p, b = v; break;
+                case 5: r = v, g = p, b = q; break;
+            }
+            return {
+                r: Math.round(r * 255),
+                g: Math.round(g * 255),
+                b: Math.round(b * 255)
+            };
+        }
+
+        function pickOrange() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var startColor=8, endColor=30; // 오렌지 8~30 : 0~360도
+        for(var i=0; i<inH; i++) {
+            for(var k=0; k<inW; k++) {
+                //문자 --> 숫자
+                var R = inImage[0][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var G = inImage[1][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var B = inImage[2][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                //RGB --> HSV
+                var hsv = rgb2hsv(R,G,B); // {h:120, s: 0.4, v:0.3}
+                var H = hsv.h; // 0~1.0 *360.0
+                var S = hsv.s;
+                var V = hsv.v;
+                //H범위 추출
+                if( startColor < (H*360) && (H*360) < endColor){
+                    // HSV --> RGB
+                    var rgb = hsv2rgb(H,S,V); // {r:150, g: 33, b:253}
+                    R = rgb.r;
+                    G = rgb.g;
+                    B = rgb.b;
+
+                    //숫자 --> 문자
+                    outImage[0][i][k] = String.fromCharCode(R);
+                    outImage[1][i][k] = String.fromCharCode(G);
+                    outImage[2][i][k] = String.fromCharCode(B);
+                }else{//나머지는 그레이
+                    var rgb = parseInt( (R+G+B) /3 );
+                    //숫자 --> 문자
+                    outImage[0][i][k] = String.fromCharCode(rgb);
+                    outImage[1][i][k] = String.fromCharCode(rgb);
+                    outImage[2][i][k] = String.fromCharCode(rgb);
+
+
+                }
+                
+            }
+        }
+        displayImage();
+    }
+
+    function pickOrange() {
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        var select = prompt("색상을 선택하세요.[빨강][오렌지][노랑][초록][파랑][보라]","오렌지");
+        var startColor, endColor,startRedColor,endRedColor,red=false;
+        switch(select){
+        case '빨강': // 빨강
+            red=true;
+            startColor = 350;
+            endColor=15;
+            break;
+        case '오렌지': // 오렌지
+            startColor = 12;
+            endColor =30;
+            break;
+        case '노랑': // 노랑
+            startColor = 50;
+            endColor =60;
+            break;
+        case '초록': // 초록
+            startColor = 130;
+            endColor=150;
+            break;
+        case '파랑': // 파랑
+            startColor = 210;
+            endColor=240;
+            break;
+        case '보라': // 보라
+            startColor = 250;
+            endColor=300;
+            break;
+        default:
+            alert('잘못 입력 하셨습니다. ');
+            break;
+    }
+        // var startColor=12, endColor=30; // 오렌지 8~30 : 0~360도
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        // var startColor=12, endColor=30; // 오렌지 8~30 : 0~360도
+        // var startColor2=130, endColor2=150; // 오렌지 8~30 : 0~360도
+        for(var i=0; i<inH; i++) {
+            for(var k=0; k<inW; k++) {
+                //문자 --> 숫자
+                var R = inImage[0][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var G = inImage[1][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                var B = inImage[2][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                //RGB --> HSV
+                var hsv = rgb2hsv(R,G,B); // {h:120, s: 0.4, v:0.3}
+                var H = hsv.h; // 0~1.0 *360.0
+                var S = hsv.s;
+                var V = hsv.v;
+                //H범위 추출
+                if( startColor < (H*360) && (H*360) < endColor){
+                    // HSV --> RGB
+                    var rgb = hsv2rgb(H,S,V); // {r:150, g: 33, b:253}
+                    R = rgb.r;
+                    G = rgb.g;
+                    B = rgb.b;
+
+                    //숫자 --> 문자
+                    outImage[0][i][k] = String.fromCharCode(R);
+                    outImage[1][i][k] = String.fromCharCode(G);
+                    outImage[2][i][k] = String.fromCharCode(B);
+                }else{//나머지는 그레이
+                    var rgb = parseInt( (R+G+B) /3 );
+                    //숫자 --> 문자
+                    outImage[0][i][k] = String.fromCharCode(rgb);
+                    outImage[1][i][k] = String.fromCharCode(rgb);
+                    outImage[2][i][k] = String.fromCharCode(rgb);
+
+
+                }
+                if((red==true) && (startColor < (H*360) || (H*360) < endColor) ){
+                    // HSV --> RGB
+                    var rgb = hsv2rgb(H,S,V); // {r:150, g: 33, b:253}
+                    R = rgb.r;
+                    G = rgb.g;
+                    B = rgb.b;
+
+                    //숫자 --> 문자
+                    outImage[0][i][k] = String.fromCharCode(R);
+                    outImage[1][i][k] = String.fromCharCode(G);
+                    outImage[2][i][k] = String.fromCharCode(B);
+                }
+                
+            }
+        }
+        displayImage();
+    }
+
+    function stressImage(){
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        var startPoint = parseInt(prompt("시작 값 :", 100 ));
+        var endPoint = parseInt(prompt("끝 값 : ", 150));
+        var rate = parseInt(prompt("강조 비율 입력 : ", "30"));
+
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++) {
+                for(var k=0; k<inW; k++) {
+                    //문자 --> 숫자
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var inVal = (R+G+B)/3;
+                    //알고리즘
+                    if (inVal >= startPoint && inVal <= endPoint) {
+                        // inVal += 10;
+                        R += rate;
+                        G += rate;
+                        B += rate;
+                        if(R>255)
+                            R = 255;
+                        if(G>255)
+                            G = 255;
+                        if(B>255)
+                            B= 255;
+                    } else
+                        outImage[0][i][k] = inImage[0][i][k];
+                        outImage[1][i][k] = inImage[1][i][k];
+                        outImage[2][i][k] = inImage[2][i][k];
+
+                    //숫자 --> 문자 
+                    outImage[0][i][k] = String.fromCharCode(R);
+                    outImage[1][i][k] = String.fromCharCode(G);
+                    outImage[2][i][k] = String.fromCharCode(B);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function mirImage(){
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        // inImage.reverse();//상하
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++){
+                inImage[rgb][i].reverse(); //좌우
+                for(var k=0; k<inW; k++){
+                    outImage[rgb][i][k] = inImage[rgb][i][k];
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function histoStretch(){
+        var high, low;
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        // out = (in - low) / (high - low) * 255
+        high = low = inImage[0][0][0].charCodeAt(0);
+
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW; k++){
+
+                    //문자 --> 숫자
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = (R+G+B)/3;
+                    if(high < pixel){
+                        high = pixel;
+                    }
+                    if(low > pixel){
+                        low = pixel;
+                    }
+                }
+            }
+        }
+
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW; k++){
+                    //문자 --> 숫자
+                    var inVal = inImage[rgb][i][k].charCodeAt(0);
+                    //알고리즘
+                    outVal = (inVal - low) / (high - low) * 255.0;
+                    outVal = parseInt(outVal);
+                    //숫자 --> 문자 
+                    outImage[rgb][i][k] = String.fromCharCode(outVal);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function endInSearch(){
+        var high, low;
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        // out = (in - low) / (high - low) * 255
+        var high = [], low = [];
+        
+        for(var rgb=0; rgb<3; rgb++) {
+            high = low = inImage[rgb][0][0].charCodeAt(0);
+
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW; k++){
+                    //문자 --> 숫자
+                    var R = inImage[0][i][k].charCodeAt(0);
+                    var G = inImage[1][i][k].charCodeAt(0);
+                    var B = inImage[2][i][k].charCodeAt(0);
+                    var pixel = (R+G+B)/3;
+                    if(high < pixel){
+                        high = pixel;
+                    }
+                    if(low > pixel){
+                        low = pixel;
+                    }
+                }
+            }
+            high[rgb] -= 50;
+            low[rgb] += 50;
+        }
+
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW; k++){
+                    //문자 --> 숫자
+                    var inVal = inImage[rgb][i][k].charCodeAt(0);
+                    //알고리즘
+                    outVal = (inVal - low) / (high - low) * 255.0;
+                    if(outVal > 255.0){
+                        outVal = 255.0;
+                    }
+                    if(outVal < 0.0){
+                        outVal = 0.0;
+                    }
+                    outVal = parseInt(outVal);
+
+                    //숫자 --> 문자 
+                    outImage[rgb][i][k] = String.fromCharCode(outVal);
+                }
+            }
+        }
+        displayImage();
+    }
+
+    function histoEqual(){
+        var high, low;
+        // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outH; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        // *** 영상 처리 알고리즘 ***
+        //1단계 : 히스토그램 생성 
+        histo = new Array(256);
+        for(var i=0; i<256; i++){ //초기화
+            histo[i] = 0;
+        }
+        for(var rgb=0; rgb<3; rgb++) {
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW; k++){
+                    var value = inImage[rgb][i][k].charCodeAt(0);
+                    histo[value] ++;
+                }
+            }
+        }
+        //2단계 : 누적 히스토그램 생성
+        sumHisto = new Array(256);
+        
+        for(var i=0; i<256; i++){
+            sumHisto[i]=0;
+        }
+        sumValue =0;
+        for(var i=0; i<256; i++){
+            sumValue += histo[i];
+            sumHisto[i] = sumValue;
+        }
+
+
+        //3단계 : 정규화된 누적 히스토그램
+        // n = sumHisto * ( 1/총픽셀수 ) * 화소최대밝기
+        normalHisto = new Array(256);
+        for(var i=0; i<256; i++){ //초기화 모두 0
+            normalHisto[i]=0;
+        }
+        for(var i=0; i<256; i++){ 
+            normalHisto[i] = sumHisto[i] * ( 1 / (inH*inW) ) * 255;
+        }
+        highR = lowR = highG = lowG = highB = lowB = inImage[0][0][0].charCodeAt(0);
+
+         //최대, 최소 찾기
+         for (var i = 0; i < inH; i++) {
+                for (var k = 0; k < inW; k++) {
+                    var pixelR = inImage[0][i][k].charCodeAt(0);
+                    var pixelG = inImage[1][i][k].charCodeAt(0);
+                    var pixelB = inImage[2][i][k].charCodeAt(0);
+                    if (highR < pixelR)
+                        highR = pixelR;
+                    if (lowR > pixelR)
+                        lowR = pixelR;
+                    if (highG < pixelG)
+                        highG = pixelG;
+                    if (lowG > pixelG)
+                        lowG = pixelG;
+                    if (highB < pixelB)
+                        highB = pixelB;
+                    if (lowB > pixelB)
+                        lowB = pixelB;
+                }
+            }
+
+        //정규화 히스토그램을 적용시키기
+            for(var i=0; i<inH; i++){
+                for(var k=0; k<inW; k++){
+                    var inValR = inImage[0][i][k].charCodeAt(0);
+                    var inValG = inImage[1][i][k].charCodeAt(0);
+                    var inValB = inImage[2][i][k].charCodeAt(0);
+                    //** 알고리즘 **
+                    outValR = (inValR - lowR) / (highR - lowR) * 255.0;
+                    outValG = (inValG - lowG) / (highG - lowG) * 255.0;
+                    outValB = (inValB - lowB) / (highB - lowB) * 255.0;
+                    if (outValR > 255.0)
+                        outValR = 255.0;
+                    if (outValR < 0.0)
+                        outValR = 0.0;
+                    if (outValG > 255.0)
+                        outValG = 255.0;
+                    if (outValG < 0.0)
+                        outValG = 0.0;
+                    if (outValB > 255.0)
+                        outValB = 255.0;
+                    if (outValB < 0.0)
+                        outValB = 0.0;
+                    outValR = parseInt(outValR);
+                    outValG = parseInt(outValG);
+                    outValB = parseInt(outValB);
+                    outImage[0][i][k] = String.fromCharCode(outValR);
+                    outImage[1][i][k] = String.fromCharCode(outValG);
+                    outImage[2][i][k] = String.fromCharCode(outValB);
+
+                }
+            }
+        displayImage();
+    }
+
+    //304번 90도 회전하기
+    function rotateNine(){
+         // (중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+        outH = inH;
+        outW = inW;
+        var rotateH = outH;
+        var rotateW = outW;
+        // 출력용 3차원 배열 메모리 할당
+        outImage = new Array(3); // 3장짜리 배열(R,G,B)
+        for(var i=0; i<3; i++) {
+            outImage[i] = new Array(outH);
+            for(var k=0; k<outW; k++)
+            outImage[i][k] = new Array(outW);
+        }
+        var imageNine = new Array(4);
+        for(var rgb=0; rgb<4; rgb++) {
+            imageNine[rgb] = new Array(rotateH);
+            for(var i=0;i<rotateH;i++){
+                imageNine[rgb][i] = new Array(rotateW);
+                
+            }
+        }
+        for(var rgb=0; rgb<4; rgb++) {
+            for(var i=0; i<outH; i++){
+                for(var k=0;k<outW;k++){
+                    imageNine[rgb][k][(outH  i)] = outImage[rgb][i][k];
+                    
+                }
+            }
+        }
+        outImage = new Array(4);
+        
+        // *** 영상 처리 알고리즘 ***
+        for(var rgb=0; rgb<4; rgb++) {
+            for(var i=0; i<rotateH; i++) {
+                for(var k=0; k<rotateW; k++) {
+                    outImage[rgb][i][k] = imageNine[rgb][i][k];
+                }
+            }
+        }
+
+        outH = rotateH;
+        outW = rotateW;
+        displayImage();
+    }
+
+
+
+</script>
+</head>
+<body onload='init()'>
+    <form>
+        <!-- input type ='file' id='inFile' onchange="loadImage()" /> <br> -->
+        <input type ='number' id='fileNum' /> 
+        <input type ='button' id='inFile' value="이미지 열기" onclick="loadImage()" />  <br> 
+        <label> 칼라 영상처리 Beta 1</label>
+        <select name='imageAlgo' onchange="selectAlgorithm(this.form.imageAlgo)">
+            <option value = 0> 선택하세요 </option>
+            <optgroup label="화소점 처리">
+                <option value=101> 동일 영상 처리 </option>
+                <option value=102> 영상 밝게/어둡게 </option>
+                <option value=103> 그레이스케일 </option>
+                <option value=104> #흑백(마우스) </option>
+                <option value=105> 흑백(입력값) </option>
+                <option value=106> 흑백(평균값) </option>
+                <option value=107> 흑백(중앙값) </option>
+                <option value=108> 흑백(127) </option>
+                <option value=109> 파라볼라 (cap) </option>
+                <option value=110> 감마보정 </option>
+                <option value=111> 화소처리(AND 프로그램) </option>
+                <option value=112> 화소처리(OR 프로그램) </option>
+                <option value=113> 화소처리(XOR 프로그램) </option>
+                <option value=114> 투명도 주기 (Alpha) </option>
+                <option value=115> 범위 강조 변환 </option>
+            </optgroup>  
+            <optgroup label="기하학 처리">
+                <option value=201> 축소하기 </option>
+                <option value=202> 확대하기 </option>
+                <option value=203> 양선형 보간법 </option>
+                <option value=204> ##반전(다각형) </option>
+                <option value=205> 색상 추출하기 </option>
+                <option value=206> 채도 조절 (0.2) </option>
+                <option value=207> 명도 조절 (0.2) </option>
+                <option value=208> 미러링하기 </option>
+               
+            </optgroup> 
+            <optgroup label="히스토그램">
+                <option value=301> 히스토그램 스트레칭 </option>
+                <option value=302> 엔드인 탐색 </option>
+                <option value=303> 평활화 </option>
+                <option value=304> 90도 회전 </option>
+                <option value=305> 각도 회전 </option>
+            </optgroup>  
+            <optgroup label="영역처리">
+                <option value=401> 엠보싱 </option>
+                <option value=402> 블러링(원본) </option>
+                <option value=403> 경계선1 </option>
+                <option value=404> 유사 연산자 </option>
+                <option value=405> 차 연산자 </option>
+                <option value=406> LoG </option>
+                <option value=407> DoG </option>
+                <option value=408> 블러링(진하기) </option>
+                <option value=409> 이동과 차분 처리 </option>
+                <option value=410> 샤프닝 </option>
+                <option value=411> 가우시안 필터 </option>
+                <option value=412> 고주파 필터 샤프닝 </option>
+                <option value=413> 저주파 필터 샤프닝 </option>
+            </optgroup>     
+        </select>
+        <br>
+        <canvas id='inCanvas' style="background-color:rgb(144, 219, 219)"></canvas>
+        <canvas id='outCanvas' style="background-color:rgb(189, 162, 165)"></canvas>
+    </form>
+    
+</body>
+</html>

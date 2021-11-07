@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영상처리 [칼라]</title>
+    <script>  // 전역 변수부 (*중요*)
+        var inCanvas, inCtx, inPaper, outCanvas, outCtx, outPaper; // 화면용
+        var inImage, inH, inW, outImage, outH, outW; // 핵심 변수들
+        var inFile;
+    </script>
+    <script> // 공통 함수부
+        // 초기화 함수
+        function init() {
+            inCanvas = document.getElementById('inCanvas'); // 도화지에 접근
+            inCtx = inCanvas.getContext('2d'); // 물감,붓이 들은 통
+            outCanvas = document.getElementById('outCanvas'); // 도화지에 접근
+            outCtx = outCanvas.getContext('2d'); // 물감,붓이 들은 통
+        }
+        function loadImage() {
+            inFile = document.getElementById('inFile').files[0]; // 선택한 칼라 파일
+            // 그림 파일 --> 이미지 객체
+            var inPicture = new Image(); // 빈 이미지 객체 생성
+            // alert(inFile.name);
+            inPicture.src = inFile.name;
+            inPicture.onload = function() { // 익명함수
+                // *중요* 입력 파일 크기 파악
+                inH = inPicture.height;
+                inW = inPicture.width;
+
+                // 캔버스 크기 조절
+                inCanvas.height = inH;
+                inCanvas.width = inW;
+                inCtx.drawImage(inPicture,0,0,inW,inH);
+
+                // 입력용 3차원 배열 메모리 할당
+                inImage = new Array(3); // 3장짜리 배열(R,G,B)
+                for(var i=0; i<3; i++) {
+                    inImage[i] = new Array(inH);
+                    for(var k=0; k<inH; k++)
+                        inImage[i][k] = new Array(inW);
+                }
+
+                // *중요* 캔버스 --> 배열로 칼라색상 추출
+                var colorBlob = inCtx.getImageData(0,0,inW,inH); // 주의!
+                var R, G, B, Alpha;
+                for(var i=0; i<inH; i++) {
+                    for (var k=0; k<inW; k++) {
+                        var px = (i*inW + k) * 4; // 1픽셀=4Byte
+                        R = colorBlob.data[px+0];
+                        G = colorBlob.data[px+1];
+                        B = colorBlob.data[px+2];
+                        // Alpha = colorBlob.data[px+3];
+                        inImage[0][i][k] = String.fromCharCode(R);
+                        inImage[1][i][k] = String.fromCharCode(G);
+                        inImage[2][i][k] = String.fromCharCode(B);
+                    }
+                }
+            }
+        }
+        function displayImage(){
+            // ** 출력 메모리의 내용을 화면에 출력하기 . 
+            // 캔버스 크기 조절
+            outCanvas.height = outH;
+            outCanvas.width = outW;
+            outPaper = outCtx.createImageData(outW,outH); //캔버스에 종이 붙이기 (크기는 캔버스 동일)
+            for(var i=0; i<outH; i++){
+                for(var k=0; k<outW; k++){
+                    var R = outImage[0][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                    var G = outImage[1][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                    var B = outImage[2][i][k].charCodeAt(0); // 이상한 문자(꽯)를 숫자(231)로.
+                    //RGB값이 다르면 color고 , RGB값이 같으면 Gray Scale 임 
+                    outPaper.data[(i*outW + k) * 4 + 0] = R; //RED,4바이트로 한개의 컬러를 표현  
+                    outPaper.data[(i*outW + k) * 4 + 1] = G; //GREEN,종이의 한 점당 4바이트  
+                    outPaper.data[(i*outW + k) * 4 + 2] = B;  //Blue 
+                    outPaper.data[(i*outW + k) * 4 + 3] = 255;  //Alpha
+                }
+            }
+            outCtx.putImageData(outPaper,0,0); //(0,0) 좌표에 붙여라 . 
+        }
+
+    </script>
+    <script> // 영상처리 함수부
+        function selectAlgorithm(selectNum){
+            switch (parseInt(selectNum.value)){ // 101,102....
+                case 101: //동일 영상 
+                    // alert(selectNum.value);
+                    equalImage();
+                    break;
+                case 102: //밝게 어둡게
+                    addImage();
+                    break;
+                
+            }
+        }
+        function equalImage(){
+            //(중요!) 출력 영상 크기 결정 --> 알고리즘에 의존
+            outH = inH;
+            outW = inW;
+             // 출력용 3차원 배열 메모리 할당
+            outImage = new Array(3); // 3장짜리 배열(R,G,B)
+            for(var i=0; i<3; i++) {
+                outImage[i] = new Array(outH);
+                for(var k=0; k<outH; k++){
+                    outImage[i][k] = new Array(outW);
+                }
+            }
+            //영상처리 알고리즘 ****
+            for(var rgb=0;rgb<3;rgb++){
+                for(var i=0; i<inH; i++){
+                    for(var k=0; k<inW; k++){
+                        outImage[rgb][i][k] = inImage[rgb][i][k];
+                    }
+                }
+            }
+            displayImage();
+        }
+    </script>
+</head>
+<body onload='init()'>
+    <form>
+        <input type ='file' id='inFile' onchange="loadImage()" /> <br>
+        <label> 칼라 영상처리 Beta 1</label>
+        <select name='imageAlgo' onchange="selectAlgorithm(this.form.imageAlgo)">
+            <option value = 0> 선택하세요 </option>
+            <optgroup label="화소점 처리">
+                <option value=101> 동일 영상 처리 </option>
+                <option value=102> 영상 밝게/어둡게 </option>
+                <option value=103> 흑백(127기준) </option>
+            </optgroup>        
+        </select>
+        <br>
+        <canvas id='inCanvas' style="background-color:rgb(144, 219, 219)"></canvas>
+        <canvas id='outCanvas' style="background-color:rgb(189, 162, 165)"></canvas>
+    </form>
+    
+</body>
+</html>
